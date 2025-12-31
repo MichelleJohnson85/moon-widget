@@ -76,13 +76,13 @@
     <div class="tiny" id="tinyText"></div>
   </div>
 
-  <!-- SunCalc from cdnjs -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
   <script>
-    // Locked settings for now
     const TZ = "Australia/Brisbane";
-    const LAT = -27.4698;     // Brisbane
+    const LAT = -27.4698;
     const LON = 153.0251;
+
+    const LUNAR_CYCLE = 29.530588853; // days
 
     function getYMDInTZ(date, timeZone) {
       const parts = new Intl.DateTimeFormat("en-AU", {
@@ -118,143 +118,72 @@
       ][i];
     }
 
-    // Convert SunCalc "phase" (0..1) into a simple 0..7 phase index
     function phaseIndexFromPhase(p) {
-      // Center bins around the classic 8 phases
-      // new=0, first quarter=2, full=4, last quarter=6
-      const idx = Math.floor(((p + 1/16) % 1) * 8);
-      return idx;
+      return Math.floor(((p + 1/16) % 1) * 8);
     }
 
-    // Simple 8-phase SVG icons, chosen based on phaseIndex
     function moonSVG(phaseIndex) {
       const size = 120;
       const r = 46;
       const cx = 60;
       const cy = 60;
 
-      // Each icon is: dark disk + light shape, clipped for crescent/gibbous feel
-      // These are stylized but correctly correspond to the 8 phases.
       const svgs = {
-        0: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="New Moon">
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-          </svg>`,
-        1: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="Waxing Crescent">
-            <defs>
-              <clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
-            </defs>
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-            <g clip-path="url(#c)">
-              <circle cx="${cx + 18}" cy="${cy}" r="${r}" fill="#e6e2d6" opacity="0.95"/>
-            </g>
-          </svg>`,
-        2: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="First Quarter">
-            <defs>
-              <clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
-            </defs>
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-            <g clip-path="url(#c)">
-              <rect x="${cx}" y="${cy - r}" width="${r}" height="${2*r}" fill="#e6e2d6" opacity="0.95"/>
-            </g>
-          </svg>`,
-        3: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="Waxing Gibbous">
-            <defs>
-              <clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
-            </defs>
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-            <g clip-path="url(#c)">
-              <circle cx="${cx + 10}" cy="${cy}" r="${r}" fill="#e6e2d6" opacity="0.95"/>
-              <circle cx="${cx - 24}" cy="${cy}" r="${r}" fill="#0f1110"/>
-            </g>
-          </svg>`,
-        4: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="Full Moon">
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#e6e2d6" opacity="0.95" stroke="#2a2f2c" stroke-width="2"/>
-          </svg>`,
-        5: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="Waning Gibbous">
-            <defs>
-              <clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
-            </defs>
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-            <g clip-path="url(#c)">
-              <circle cx="${cx - 10}" cy="${cy}" r="${r}" fill="#e6e2d6" opacity="0.95"/>
-              <circle cx="${cx + 24}" cy="${cy}" r="${r}" fill="#0f1110"/>
-            </g>
-          </svg>`,
-        6: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="Last Quarter">
-            <defs>
-              <clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
-            </defs>
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-            <g clip-path="url(#c)">
-              <rect x="${cx - r}" y="${cy - r}" width="${r}" height="${2*r}" fill="#e6e2d6" opacity="0.95"/>
-            </g>
-          </svg>`,
-        7: `
-          <svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="Waning Crescent">
-            <defs>
-              <clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
-            </defs>
-            <circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/>
-            <g clip-path="url(#c)">
-              <circle cx="${cx - 18}" cy="${cy}" r="${r}" fill="#e6e2d6" opacity="0.95"/>
-            </g>
-          </svg>`
+        0:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110" stroke="#2a2f2c" stroke-width="2"/></svg>`,
+        1:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs><clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110"/><g clip-path="url(#c)"><circle cx="${cx+18}" cy="${cy}" r="${r}" fill="#e6e2d6"/></g></svg>`,
+        2:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs><clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110"/><g clip-path="url(#c)"><rect x="${cx}" y="${cy-r}" width="${r}" height="${2*r}" fill="#e6e2d6"/></g></svg>`,
+        3:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs><clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110"/><g clip-path="url(#c)"><circle cx="${cx+10}" cy="${cy}" r="${r}" fill="#e6e2d6"/><circle cx="${cx-24}" cy="${cy}" r="${r}" fill="#0f1110"/></g></svg>`,
+        4:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#e6e2d6" stroke="#2a2f2c" stroke-width="2"/></svg>`,
+        5:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs><clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110"/><g clip-path="url(#c)"><circle cx="${cx-10}" cy="${cy}" r="${r}" fill="#e6e2d6"/><circle cx="${cx+24}" cy="${cy}" r="${r}" fill="#0f1110"/></g></svg>`,
+        6:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs><clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110"/><g clip-path="url(#c)"><rect x="${cx-r}" y="${cy-r}" width="${r}" height="${2*r}" fill="#e6e2d6"/></g></svg>`,
+        7:`<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs><clipPath id="c"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0f1110"/><g clip-path="url(#c)"><circle cx="${cx-18}" cy="${cy}" r="${r}" fill="#e6e2d6"/></g></svg>`
       };
-
-      return svgs[phaseIndex] || svgs[0];
+      return svgs[phaseIndex];
     }
 
-    // Main render
     (function render() {
       const now = new Date();
-
-      // Use today's date in Brisbane timezone, then build a UTC noon Date for stable calculations
       const { y, m, d } = getYMDInTZ(now, TZ);
-      const dateUTCNoon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      const dateUTC = new Date(Date.UTC(y, m-1, d, 12, 0, 0));
 
-      const illum = SunCalc.getMoonIllumination(dateUTCNoon);
-      const fraction = illum.fraction; // 0..1
-      const percent = Math.round(fraction * 100);
+      const illum = SunCalc.getMoonIllumination(dateUTC);
+      const percent = Math.round(illum.fraction * 100);
+      const phaseIndex = phaseIndexFromPhase(illum.phase);
+      const phaseName = phaseNameFromIndex(phaseIndex);
 
-      const pIndex = phaseIndexFromPhase(illum.phase);
-      const pName = phaseNameFromIndex(pIndex);
+      const age = illum.phase * LUNAR_CYCLE;
+      const daysToNew = Math.round(LUNAR_CYCLE - age);
+      const daysToFull = Math.round(
+        age <= LUNAR_CYCLE/2
+          ? (LUNAR_CYCLE/2 - age)
+          : (LUNAR_CYCLE + LUNAR_CYCLE/2 - age)
+      );
 
-      const times = SunCalc.getMoonTimes(dateUTCNoon, LAT, LON);
-      let riseStr = "Moonrise: not available";
-      let setStr = "Moonset: not available";
+      const times = SunCalc.getMoonTimes(dateUTC, LAT, LON);
+      let rise = "Moonrise: not available";
+      let set  = "Moonset: not available";
 
-      if (times.alwaysUp) {
-        riseStr = "Moonrise: always above horizon";
-        setStr  = "Moonset: always above horizon";
-      } else if (times.alwaysDown) {
-        riseStr = "Moonrise: always below horizon";
-        setStr  = "Moonset: always below horizon";
-      } else {
-        if (times.rise) riseStr = "Moonrise: " + fmtTime(times.rise);
-        if (times.set)  setStr  = "Moonset: " + fmtTime(times.set);
-      }
+      if (times.rise) rise = "Moonrise: " + fmtTime(times.rise);
+      if (times.set)  set  = "Moonset: " + fmtTime(times.set);
 
-      document.getElementById("moonIcon").innerHTML = moonSVG(pIndex);
-      document.getElementById("phaseText").innerText = pName + " · " + percent + "% visibility";
-      document.getElementById("metaText").innerText = riseStr + "\n" + setStr;
+      document.getElementById("moonIcon").innerHTML = moonSVG(phaseIndex);
+      document.getElementById("phaseText").innerText =
+        phaseName + " · " + percent + "% visibility";
 
-      // Extra: show the local Brisbane date used
-      const dateLabel = new Intl.DateTimeFormat("en-AU", {
-        timeZone: TZ,
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-      }).format(now);
+      document.getElementById("metaText").innerText =
+        rise + "\n" +
+        set + "\n\n" +
+        "Next New Moon: " + daysToNew + " days\n" +
+        "Next Full Moon: " + daysToFull + " days";
 
-      document.getElementById("tinyText").innerText = dateLabel + " · " + TZ;
+      document.getElementById("tinyText").innerText =
+        new Intl.DateTimeFormat("en-AU", {
+          timeZone: TZ,
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        }).format(now) + " · " + TZ;
     })();
   </script>
 </body>
