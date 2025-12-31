@@ -82,16 +82,6 @@
     const LAT = -27.4698;
     const LON = 153.0251;
     const LUNAR_CYCLE = 29.530588853;
-    const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-    // Eclipse awareness list (worldwide dates, UTC date markers)
-    // If you want, we can extend this list for multiple years.
-    const ECLIPSES = [
-      { date: "2026-02-17", kind: "Solar", subtype: "Annular" },
-      { date: "2026-03-03", kind: "Lunar", subtype: "Total" },     // Mar 2–3, anchored to Mar 3 UTC date marker
-      { date: "2026-08-12", kind: "Solar", subtype: "Total" },
-      { date: "2026-08-28", kind: "Lunar", subtype: "Partial" }    // Aug 27–28, anchored to Aug 28 UTC date marker
-    ];
 
     function getYMDInTZ(date, timeZone) {
       const parts = new Intl.DateTimeFormat("en-AU", {
@@ -111,15 +101,6 @@
         hour: "2-digit",
         minute: "2-digit"
       }).format(date);
-    }
-
-    function fmtDateInTZ(dateObj) {
-      return new Intl.DateTimeFormat("en-AU", {
-        timeZone: TZ,
-        year: "numeric",
-        month: "short",
-        day: "2-digit"
-      }).format(dateObj);
     }
 
     function phaseNameFromIndex(i) {
@@ -158,70 +139,12 @@
       return svgs[phaseIndex];
     }
 
-    function parseISODateToUTCNoon(isoDate) {
-      const [yy, mm, dd] = isoDate.split("-").map(Number);
-      return new Date(Date.UTC(yy, mm - 1, dd, 12, 0, 0));
-    }
-
-    function daysUntil(fromUTCNoon, toUTCNoon) {
-      return Math.ceil((toUTCNoon.getTime() - fromUTCNoon.getTime()) / MS_PER_DAY);
-    }
-
-    function nextEclipseLines(todayUTCNoon) {
-      const enriched = ECLIPSES.map(e => {
-        const d = parseISODateToUTCNoon(e.date);
-        return {
-          ...e,
-          dateObj: d,
-          inDays: daysUntil(todayUTCNoon, d)
-        };
-      }).filter(e => e.inDays >= 0).sort((a,b) => a.dateObj - b.dateObj);
-
-      const nextOverall = enriched[0];
-      const nextSolar = enriched.find(e => e.kind === "Solar");
-      const nextLunar = enriched.find(e => e.kind === "Lunar");
-
-      const lines = [];
-
-      if (nextOverall) {
-        lines.push(
-          "Next Eclipse: " + nextOverall.subtype + " " + nextOverall.kind +
-          " · " + fmtDateInTZ(nextOverall.dateObj) +
-          " · " + nextOverall.inDays + " days"
-        );
-      } else {
-        lines.push("Next Eclipse: not in list");
-      }
-
-      if (nextSolar) {
-        lines.push(
-          "Next Solar Eclipse: " + nextSolar.subtype +
-          " · " + fmtDateInTZ(nextSolar.dateObj) +
-          " · " + nextSolar.inDays + " days"
-        );
-      }
-
-      if (nextLunar) {
-        lines.push(
-          "Next Lunar Eclipse: " + nextLunar.subtype +
-          " · " + fmtDateInTZ(nextLunar.dateObj) +
-          " · " + nextLunar.inDays + " days"
-        );
-      }
-
-      lines.push("Note: eclipse visibility varies by location");
-
-      return lines.join("\n");
-    }
-
     (function render() {
       const now = new Date();
-
-      // Use today's date in Brisbane timezone, but compute astronomy at UTC noon for stability
       const { y, m, d } = getYMDInTZ(now, TZ);
-      const todayUTCNoon = new Date(Date.UTC(y, m-1, d, 12, 0, 0));
+      const dateUTC = new Date(Date.UTC(y, m-1, d, 12, 0, 0));
 
-      const illum = SunCalc.getMoonIllumination(todayUTCNoon);
+      const illum = SunCalc.getMoonIllumination(dateUTC);
       const percent = Math.round(illum.fraction * 100);
       const phaseIndex = phaseIndexFromPhase(illum.phase);
       const phaseName = phaseNameFromIndex(phaseIndex);
@@ -234,7 +157,7 @@
           : (LUNAR_CYCLE + LUNAR_CYCLE / 2 - age)
       );
 
-      const times = SunCalc.getMoonTimes(todayUTCNoon, LAT, LON);
+      const times = SunCalc.getMoonTimes(dateUTC, LAT, LON);
       let rise = "Moonrise: not available";
       let set  = "Moonset: not available";
 
@@ -246,8 +169,6 @@
           ? ("Next Full Moon: " + daysToFull + " days\nNext New Moon: " + daysToNew + " days")
           : ("Next New Moon: " + daysToNew + " days\nNext Full Moon: " + daysToFull + " days");
 
-      const eclipseBlock = nextEclipseLines(todayUTCNoon);
-
       document.getElementById("moonIcon").innerHTML = moonSVG(phaseIndex);
       document.getElementById("phaseText").innerText =
         phaseName + " · " + percent + "% visibility";
@@ -255,8 +176,7 @@
       document.getElementById("metaText").innerText =
         rise + "\n" +
         set + "\n\n" +
-        nextLines + "\n\n" +
-        eclipseBlock;
+        nextLines;
 
       document.getElementById("tinyText").innerText =
         new Intl.DateTimeFormat("en-AU", {
